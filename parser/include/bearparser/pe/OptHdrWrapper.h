@@ -2,6 +2,7 @@
 
 #include "PENodeWrapper.h"
 
+// wrapper for the PE optional header
 class OptHdrWrapper : public PEElementWrapper
 {
 public:

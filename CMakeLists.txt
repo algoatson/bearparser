@@ -3,6 +3,10 @@ project (re-bear)
 
 option(CMD_BUILD_TESTING "Enable testing for bearcommander" ON)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 # modules:
 set ( M_BEARPARSER "parser" )
 set ( M_BEARCOMMANDER "commander" )

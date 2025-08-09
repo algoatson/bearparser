@@ -3,6 +3,8 @@
 #include "pe/DOSExe.h"
 #include "pe/PEFile.h"
 
+#include "elf/ELFFile.h"
+
 std::map<ExeFactory::exe_type, ExeBuilder*> ExeFactory::builders;
 
 void ExeFactory::init()
@@ -10,8 +12,9 @@ void ExeFactory::init()
     if (builders.size() > 0) {
         return; // already initialized
     }
-    builders[MZ] = new DOSExeBuilder();
-    builders[PE] = new PEFileBuilder();
+    builders[MZ] = new  DOSExeBuilder();
+    builders[PE] = new  PEFileBuilder();
+    builders[ELF] = new ELFFileBuilder();
 }
 
 void ExeFactory::destroy()

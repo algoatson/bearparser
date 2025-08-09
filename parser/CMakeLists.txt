@@ -27,6 +27,14 @@ endif()
 
 include_directories (include/bearparser)
 
+set (elf_hdrs
+    include/bearparser/elf_hdrs/linux-types.h
+    include/bearparser/elf/ELFFile.h
+    include/bearparser/elf/ElfHdrWrapper.h
+    include/bearparser/elf/ElfProgHdrWrapper.h
+    include/bearparser/elf/ELFCore.h
+)
+
 set (win_hdrs
     include/bearparser/win_hdrs/poppack.h
     include/bearparser/win_hdrs/pshpack1.h
@@ -91,6 +99,11 @@ set (parser_hdrs
     include/bearparser/Formatter.h
 )
 
+set (elf_srcs
+    elf/ELFFile.cpp
+    elf/ELFCore.cpp
+)
+
 set (pe_srcs
     pe/DosHdrWrapper.cpp
     pe/DOSExe.cpp
@@ -144,16 +157,21 @@ set (parser_srcs
     ${parser_srcs}
     ${pe_srcs}
     ${pe_rsrc_srcs}
+    ${elf_srcs}
 )
 
 set (parser_hdrs
     ${win_hdrs}
     ${parser_hdrs}
     ${pe_hdrs}
+    ${elf_hdrs}
     ${pe_rsrc_hdrs}
 )
 
 SOURCE_GROUP("Header Files\\win_hdrs" FILES ${win_hdrs} )
+
+SOURCE_GROUP("Source Files\\elf" FILES ${elf_srcs} )
+SOURCE_GROUP("Header Files\\elf" FILES ${elf_hdrs} )
 
 SOURCE_GROUP("Source Files\\pe" FILES ${pe_srcs} )
 SOURCE_GROUP("Header Files\\pe" FILES ${pe_hdrs} )

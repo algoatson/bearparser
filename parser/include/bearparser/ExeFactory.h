@@ -8,6 +8,7 @@ public:
     ExeFactoryException(const QString info) : CustomException(info) {}
 };
 
+// static class.
 class ExeFactory
 {
 public:
@@ -15,6 +16,7 @@ public:
         NONE = 0,
         PE = 1,
         MZ,
+        ELF,
         TYPES_COUNT
     };
 

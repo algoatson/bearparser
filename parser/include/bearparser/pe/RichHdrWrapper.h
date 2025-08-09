@@ -6,6 +6,7 @@
 const QString RichHdr_ProdIdToVSversion(WORD prodId);
 const QString RichHdr_translateProdId(WORD prodId);
 
+// wrapper for the Rich header of a PE file
 class RichHdrWrapper : public PEElementWrapper
 {
 public:

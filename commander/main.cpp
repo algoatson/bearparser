@@ -41,16 +41,19 @@ int main(int argc, char *argv[])
     ExeCmdContext exeContext;
     PECommander commander(&exeContext);
 
-    if (argc < 2) {
-        std::cout << "Bearparser version: " <<  BEARPARSER_VERSION << "\n";
-        std::cout << "Args: <PE file>\n";
-        commander.printHelp();
-        return 0;
-    }
+    // if (argc < 2) {
+    //     std::cout << "Bearparser version: " <<  BEARPARSER_VERSION << "\n";
+    //     std::cout << "Args: <PE file>\n";
+    //     commander.printHelp();
+    //     return 0;
+    // }
 
     int status = 0;
-    QString fName = QString(argv[1]);
-    
+    // QString fName = QString(argv[1]);
+    // QString fName = QString("/mnt/c/Users/cskil/Desktop/Cracking/flowers_of_gensokyo.exe");
+    QString fName = QString("/usr/bin/cat");
+    qInfo() << "PATH TO EXECUTABLE : " << fName;
+
     try {
         FileView* fileView = tryLoading(fName);
         if (!fileView) return -1;
@@ -72,6 +75,8 @@ int main(int argc, char *argv[])
 
         std::cout << "Parsing executable..." << std::endl;
         Executable *exe = ExeFactory::build(buf, exeType);
+
+        if (!exe) throw CustomException("Executable construction failed: builder returned null");
 
         exeContext.setExe(exe);
         commander.parseCommands();

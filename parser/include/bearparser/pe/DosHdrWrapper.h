@@ -5,6 +5,7 @@
 
 #include "pe_formats.h"
 
+// wrapper for the DOS header of a PE file
 class DosHdrWrapper : public ExeElementWrapper
 {
 public:

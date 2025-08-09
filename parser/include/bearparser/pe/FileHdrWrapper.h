@@ -7,12 +7,13 @@
 #include <map>
 #include <vector>
 
+// wrapper for the PE file header
 class FileHdrWrapper : public PEElementWrapper
 {
 public:
     /* fields :*/
     enum FieldID {
-        NONE = -1,
+        NONE = FIELD_NONE,
         MACHINE = 0,
         SEC_NUM,
         TIMESTAMP,

@@ -31,6 +31,7 @@ bool PEFileBuilder::signatureMatches(AbstractByteBuffer *buf)
 Executable* PEFileBuilder::build(AbstractByteBuffer *buf)
 {
     Executable *exe = NULL;
+    // redundant check. might wanna remove this.
     if (signatureMatches(buf) == false) return NULL;
 
     try {
