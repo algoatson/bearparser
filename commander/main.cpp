@@ -50,10 +50,7 @@ int main(int argc, char *argv[])
 
     int status = 0;
     QString fName = QString(argv[1]);
-    // QString fName = QString("/mnt/c/Users/cskil/Desktop/Cracking/flowers_of_gensokyo.exe");
-    // QString fName = QString("/usr/bin/cat");
-    // QString fName = QString("/usr/lib32/libdl.so.2");
-    qInfo() << "PATH TO EXECUTABLE : " << fName;
+    qDebug() << "PATH TO EXECUTABLE : " << fName;
 
     try {
         FileView* fileView = tryLoading(fName);

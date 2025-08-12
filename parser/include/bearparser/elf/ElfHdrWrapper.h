@@ -2,7 +2,9 @@
 
 #include "elf/ELFNodeWrapper.h"
 #include "elf.h"
+
 #include <QDebug>
+#include <unordered_map>
 
 class ELFFile; // forward declaration
 
@@ -19,6 +21,8 @@ public:
         E_IDENT_ABIVERSION,
         FIELD_COUNTER
     };
+
+    static const std::unordered_map<uint16_t, QString> s_machine;
 
     ElfHdrWrapper(ELFFile *elfExe) 
         : ELFElementWrapper(elfExe), 
