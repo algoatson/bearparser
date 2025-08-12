@@ -10,11 +10,13 @@ void *ElfProgHdrWrapper::getPtr() {
     return m_ELF->getContentAt(m_ELF->elfProgHdrOffset(), m_ELF->elfProgHdrSize());
 }
 
-bufsize_t ElfProgHdrWrapper::getSize() {
-    auto hdr = m_ELF->getPhdrsVariant();
-    
+bufsize_t ElfProgHdrWrapper::getEntrySize() {
     return std::visit([](auto *ptr) {
         using T = std::remove_pointer_t<decltype(ptr)>;
         return sizeof(T);
-    }, hdr);
+    }, phdrs);
+}
+
+bufsize_t ElfProgHdrWrapper::getSize() {
+    return m_ELF->elfProgHdrSize();
 }

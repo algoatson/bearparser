@@ -69,6 +69,7 @@ public:
     //---
     // ELFFile only:
     offset_t elfProgHdrOffset() const { return core.elfProgramHdrsOffset(); }
+    bufsize_t elfProgHdrCount() const { return core.elfProgramHdrsCount(); }
     bufsize_t elfProgHdrSize()  const { return core.elfProgramHdrsSize(); }
     
     offset_t elfSectHdrOffset() const { return core.elfSectionHdrsOffset(); }

@@ -27,7 +27,10 @@ public:
         : ELFElementWrapper(elfExe),
           phdrs(static_cast<Elf64_Phdr*>(nullptr)) 
         {
+            qInfo() << "Program Headers Entry Size:" << getEntrySize();
             qInfo() << "Program Headers Size:" << getSize();
+            wrap();
+
             void *ptr = getPtr();
             qInfo() << "ELF Program Header is located at:" << ptr;
         }
@@ -35,6 +38,7 @@ public:
     bool wrap();
     virtual void* getPtr();
 
+    virtual bufsize_t getEntrySize();
     virtual bufsize_t getSize();
 
     virtual QString getName() {
