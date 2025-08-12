@@ -2,17 +2,14 @@
 
 #include "ELFCore.h"
 
-// #include "AbstractByteBuffer.h"
-// #include "Executable.h"
-#include "../MappedExe.h"
 #include "ElfHdrWrapper.h"
 #include "ElfProgHdrWrapper.h"
 #include "ElfSectHdrWrapper.h"
 #include "ElfSymTabWrapper.h"
 #include "ElfDynWrapper.h"
-#include <QDebug>
 
-//class ELFFile;
+#include "../MappedExe.h"
+#include <QDebug>
 
 class ELFFileBuilder: public ExeBuilder {
 public:
@@ -53,10 +50,29 @@ public:
     virtual offset_t rawToRva(offset_t raw) { return 0; }
     virtual offset_t rvaToRaw(offset_t rva) { return 0; }
     
-    virtual exe_bits getBitMode() { return getHdrBitMode(); }
+
+    std::variant<Elf32_Ehdr*, Elf64_Ehdr*> getEhdrVariant() const {
+        return core.getEhdrVariant();
+    }
+    
+    std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariant() const {
+        return core.getPhdrsVariant();
+    }
+
+    std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariant() const {
+        return core.getShdrsVariant();
+    }
+
+    virtual exe_bits getHdrBitMode() { return core.getHdrBitMode(); }
     virtual exe_arch getArch() { return ARCH_UNKNOWN; }
 
-    exe_bits getHdrBitMode() { return core.getHdrBitMode(); }
+    //---
+    // ELFFile only:
+    offset_t elfProgHdrOffset() const { return core.elfProgramHdrsOffset(); }
+    bufsize_t elfProgHdrSize()  const { return core.elfProgramHdrsSize(); }
+    
+    offset_t elfSectHdrOffset() const { return core.elfSectionHdrsOffset(); }
+    bufsize_t elfSectHdrSize()  const { return core.elfSectionHdrsSize(); }
 
 protected:
     void _init(AbstractByteBuffer *v_buf);

@@ -31,8 +31,8 @@ Executable* ELFFileBuilder::build(AbstractByteBuffer *buf)
 }
 
 ELFFile::ELFFile(AbstractByteBuffer *v_buf)
-    : MappedExe(v_buf, Executable::BITS_32)
-        // elfHdr(NULL), progHdrs(NULL), sectHdrs(NULL), symTab(NULL), dynTab(NULL)
+    : MappedExe(v_buf, Executable::BITS_64) // default should be 64-bit.
+      // elfHdr(NULL), progHdrs(NULL), sectHdrs(NULL), symTab(NULL), dynTab(NULL)
 {
     clearWrappers();
 
@@ -43,6 +43,7 @@ ELFFile::ELFFile(AbstractByteBuffer *v_buf)
 void ELFFile::_init(AbstractByteBuffer *v_buf) 
 {
     core.wrap(v_buf);
+    this->bitMode = core.getHdrBitMode();
 
     this->elfHdr = new ElfHdrWrapper(this);
     this->progHdrs = new ElfProgHdrWrapper(this);
@@ -61,6 +62,7 @@ void ELFFile::clearWrappers() {
 }
 
 offset_t ELFFile::getEntryPoint(Executable::addr_type addrType) {
+    // need to do some verifications here.
     // if (addrType != Executable::VA) {
     //     Logger::append(Logger::D_ERROR, "ELF entry point must be VA.");
     //     return INVALID_ADDR;

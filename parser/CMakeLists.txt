@@ -102,6 +102,9 @@ set (parser_hdrs
 set (elf_srcs
     elf/ELFFile.cpp
     elf/ELFCore.cpp
+    elf/ElfHdrWrapper.cpp
+    elf/ELFNodeWrapper.cpp
+    elf/ElfProgHdrWrapper.cpp
 )
 
 set (pe_srcs

@@ -1,11 +1,12 @@
 #pragma once
 
-#include "../ExeElementWrapper.h"
-#include "../Executable.h"
-
+#include "elf/ELFNodeWrapper.h"
 #include "elf.h"
+#include <QDebug>
 
-class ElfHdrWrapper : public ExeElementWrapper
+class ELFFile; // forward declaration
+
+class ElfHdrWrapper : public ELFElementWrapper
 {
 public:
     enum FieldID {
@@ -19,18 +20,38 @@ public:
         FIELD_COUNTER
     };
 
-    ElfHdrWrapper(Executable *elfExe) : ExeElementWrapper(elfExe) { }
+    ElfHdrWrapper(ELFFile *elfExe) 
+        : ELFElementWrapper(elfExe), 
+          hdr(static_cast<Elf64_Ehdr*>(nullptr)) {
+            qInfo() << "ELF Header Size:" << getSize();
+            wrap();
+            
+            if (std::holds_alternative<Elf64_Ehdr*>(hdr)) {
+                qInfo() << "ELF64 Header is used.";
+            } else if (std::holds_alternative<Elf32_Ehdr*>(hdr)) {
+                qInfo() << "ELF32 Header is used.";
+            } else {
+                qWarning() << "Unknown ELF header type!";
+            }
 
-    virtual void* getPtr() { return m_Exe->getContent(); }
-
-    virtual bufsize_t getSize() {
-        return m_Exe->isBit64() ? sizeof(Elf64_Ehdr) : sizeof(Elf32_Ehdr);
+            void *ptr = getPtr();
+            qInfo() << "ELF Header is located at:" << ptr;
     }
+
+    bool wrap();
+
+    virtual void* getPtr();
+
+    // should return the size of the ELF header
+    virtual bufsize_t getSize();
 
     virtual QString getName() { return "ELF Hdr"; }
     virtual size_t getFieldsCount() { return FIELD_COUNTER; }
 
-    virtual void* getFieldPtr(size_t fieldId, size_t subField = FIELD_NONE) { }
+    virtual void* getFieldPtr(size_t fieldId, size_t subField = FIELD_NONE);
     virtual QString getFieldName(size_t fieldId) { }
     virtual Executable::addr_type containsAddrType(size_t fieldId, size_t subField = FIELD_NONE) { }
+private:
+    std::variant<Elf32_Ehdr*, Elf64_Ehdr*> hdr;
+
 };

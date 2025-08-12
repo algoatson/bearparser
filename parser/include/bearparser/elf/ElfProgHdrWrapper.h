@@ -1,9 +1,13 @@
 #pragma once
 
-#include "../ExeElementWrapper.h"
+#include "elf/ELFNodeWrapper.h"
 #include "elf.h"
 
-class ElfProgHdrWrapper : public ExeElementWrapper
+#include <QDebug>
+
+class ELFFile; // forward declaration
+
+class ElfProgHdrWrapper : public ELFElementWrapper
 {
 public:
     enum FieldID {
@@ -19,13 +23,19 @@ public:
         FIELD_COUNTER
     };
 
-    ElfProgHdrWrapper(Executable *elfExe) : ExeElementWrapper(elfExe) { }
+    ElfProgHdrWrapper(ELFFile *elfExe) 
+        : ELFElementWrapper(elfExe),
+          phdrs(static_cast<Elf64_Phdr*>(nullptr)) 
+        {
+            qInfo() << "Program Headers Size:" << getSize();
+            void *ptr = getPtr();
+            qInfo() << "ELF Program Header is located at:" << ptr;
+        }
 
-    virtual void* getPtr() { return m_Exe->getContent(); }
+    bool wrap();
+    virtual void* getPtr();
 
-    virtual bufsize_t getSize() { 
-        return m_Exe->isBit64() ? sizeof(Elf64_Phdr) : sizeof(Elf32_Phdr); 
-    }
+    virtual bufsize_t getSize();
 
     virtual QString getName() {
         return "ELF Program Header";
@@ -36,4 +46,7 @@ public:
     virtual void* getFieldPtr(size_t fieldId, size_t subField = FIELD_NONE) { }
     virtual QString getFieldName(size_t fieldId) { }
     virtual Executable::addr_type containsAddrType(size_t fieldId, size_t subField = FIELD_NONE) { }
+protected:
+    std::variant<Elf32_Phdr*, Elf64_Phdr*> phdrs;
+
 };
