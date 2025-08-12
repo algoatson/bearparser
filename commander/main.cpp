@@ -41,12 +41,12 @@ int main(int argc, char *argv[])
     ExeCmdContext exeContext;
     PECommander commander(&exeContext);
 
-    // if (argc < 2) {
-    //     std::cout << "Bearparser version: " <<  BEARPARSER_VERSION << "\n";
-    //     std::cout << "Args: <PE file>\n";
-    //     commander.printHelp();
-    //     return 0;
-    // }
+    if (argc < 2) {
+        std::cout << "Bearparser version: " <<  BEARPARSER_VERSION << "\n";
+        std::cout << "Args: <PE file>\n";
+        commander.printHelp();
+        return 0;
+    }
 
     int status = 0;
     QString fName = QString(argv[1]);
