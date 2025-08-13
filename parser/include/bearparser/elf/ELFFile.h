@@ -83,7 +83,7 @@ protected:
 
     ElfHdrWrapper *elfHdr;
     ElfProgHdrWrapper *progHdrs;
-    // ElfSectHdrWrapper *sectHdrs;
+    ElfSectHdrWrapper *sectHdrs;
     // ElfSymTabWrapper *symTab;
     // ElfDynWrapper *dynTab;
 };

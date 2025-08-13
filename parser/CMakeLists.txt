@@ -105,6 +105,7 @@ set (elf_srcs
     elf/ElfHdrWrapper.cpp
     elf/ELFNodeWrapper.cpp
     elf/ElfProgHdrWrapper.cpp
+    elf/ElfSectHdrWrapper.cpp
 )
 
 set (pe_srcs

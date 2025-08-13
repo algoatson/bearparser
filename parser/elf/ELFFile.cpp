@@ -47,7 +47,7 @@ void ELFFile::_init(AbstractByteBuffer *v_buf)
 
     this->elfHdr = new ElfHdrWrapper(this);
     this->progHdrs = new ElfProgHdrWrapper(this);
-    // this->sectHdrs = new ElfSectHdrWrapper(this);
+    this->sectHdrs = new ElfSectHdrWrapper(this);
     // this->symTab = new ElfSymTabWrapper(this);
     // this->dynTab = new ElfDynWrapper(this);
 }

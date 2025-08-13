@@ -10,10 +10,43 @@ T* getStructAt(AbstractByteBuffer* buf, size_t offset, size_t count, bool allowT
     return reinterpret_cast<T*>(buf->getContentAt(offset, count, allowThrow));
 }
 
+// write a function for wrapping static_asserts, for ease of use.
+template<typename EhdrT>
+constexpr bool isValidElfHeaderType() {
+    return std::is_same_v<EhdrT, Elf32_Ehdr> || std::is_same_v<EhdrT, Elf64_Ehdr>;
+}
+
+template<typename PhdrT>
+constexpr bool isValidProgramHeaderType() {
+    return std::is_same_v<PhdrT, Elf32_Phdr> || std::is_same_v<PhdrT, Elf64_Phdr>;
+}
+
+template<typename ShdrT>
+constexpr bool isValidSectionHeaderType() {
+    return std::is_same_v<ShdrT, Elf32_Shdr> || std::is_same_v<ShdrT, Elf64_Shdr>;
+}   
+
+template <typename HdrT>
+void isValidType() {
+    static_assert(isValidElfHeaderType<HdrT>() || isValidProgramHeaderType<HdrT>() || isValidSectionHeaderType<HdrT>(),
+                  "Invalid type passed to isValidType<HdrT>() — must be Elf32_Ehdr, Elf64_Ehdr, Elf32_Phdr, Elf64_Phdr, Elf32_Shdr or Elf64_Shdr");
+
+    return;
+}
+
 template <typename EhdrT, typename PhdrT, typename ShdrT>
 bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFromBuffer) {
-    static_assert(std::is_same_v<EhdrT, Elf64_Ehdr> || std::is_same_v<EhdrT, Elf32_Ehdr>,
-                  "Invalid type passed to wrapElfHeaders<EhdrT, PhdrT, ShdrT>() — must be Elf32_Ehdr or Elf64_Ehdr");
+    // compile-time check to ensure EhdrT is either Elf32_Ehdr or Elf64_Ehdr
+    // shouldn't impact runtime performance.
+    // isValidType<EhdrT>();
+    // isValidType<PhdrT>();
+    // isValidType<ShdrT>();
+
+    // compile-time check to ensure proper types are passed
+    // shouldn't impact runtime performance.
+    static_assert(isValidElfHeaderType<EhdrT>(),     "Invalid type passed to wrapElfHeaders<EhdrT, PhdrT, ShdrT>() — EhdrT must be of type Elf32_Ehdr or Elf64_Ehdr");
+    static_assert(isValidProgramHeaderType<PhdrT>(), "Invalid type passed to wrapElfHeaders<EhdrT, PhdrT, ShdrT>() — PhdrT must be of type Elf32_Phdr or Elf64_Phdr");
+    static_assert(isValidSectionHeaderType<ShdrT>(), "Invalid type passed to wrapElfHeaders<EhdrT, PhdrT, ShdrT>() — ShdrT must be of type Elf32_Shdr or Elf64_Shdr");
     
     buf = v_buf;
     ehdr = getStructAt<EhdrT>(buf, 0, sizeof(EhdrT), allowExceptionsFromBuffer);
@@ -57,7 +90,6 @@ void ELFCore::reset() {
 bool ELFCore::wrap(AbstractByteBuffer *buf) {
     if (!buf) throw ExeException("Could not wrap ELFCore: buffer is null!");
 
-    // buf = dynamic_cast<AbstractByteBuffer*>(v_buf);
     const bool allowExceptionsFromBuffer = false;
 
     // reset all:
@@ -75,6 +107,8 @@ bool ELFCore::wrap(AbstractByteBuffer *buf) {
         e_ident[EI_MAG2] != ELFMAG2 || e_ident[EI_MAG3] != ELFMAG3)
         throw ExeException("Could not wrap ELFCore: not a valid ELF file!");
 
+    // this is the only check that determines the bitness of the ELF file.
+    // If the file is 64-bit, we use Elf64_Ehdr, otherwise Elf32_Ehdr.
     return (e_ident[EI_CLASS] == ELFCLASS64)
     ? wrapElfHeaders<Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr>(buf, allowExceptionsFromBuffer)
     : wrapElfHeaders<Elf32_Ehdr, Elf32_Phdr, Elf32_Shdr>(buf, allowExceptionsFromBuffer);

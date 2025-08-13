@@ -23,17 +23,7 @@ public:
         FIELD_COUNTER
     };
 
-    ElfProgHdrWrapper(ELFFile *elfExe) 
-        : ELFElementWrapper(elfExe),
-          phdrs(static_cast<Elf64_Phdr*>(nullptr)) 
-        {
-            qInfo() << "Program Headers Entry Size:" << getEntrySize();
-            qInfo() << "Program Headers Size:" << getSize();
-            wrap();
-
-            void *ptr = getPtr();
-            qInfo() << "ELF Program Header is located at:" << ptr;
-        }
+    ElfProgHdrWrapper(ELFFile *elfExe);
 
     bool wrap();
     virtual void* getPtr();

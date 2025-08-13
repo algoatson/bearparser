@@ -1,6 +1,18 @@
 #include "elf/ElfProgHdrWrapper.h"
 #include "elf/ELFFile.h"
 
+ElfProgHdrWrapper::ElfProgHdrWrapper(ELFFile *elfExe) 
+        : ELFElementWrapper(elfExe),
+          phdrs(static_cast<Elf64_Phdr*>(nullptr)) 
+        {
+            qInfo() << "Program Headers Entry Size:" << getEntrySize();
+            qInfo() << "Program Headers Size:" << getSize();
+            wrap();
+
+            void *ptr = getPtr();
+            qInfo() << "ELF Program Header is located at:" << ptr;
+        }
+
 bool ElfProgHdrWrapper::wrap() {
     phdrs = m_ELF->getPhdrsVariant();
     return std::visit([](auto *ptr){ return ptr != nullptr; }, phdrs);
