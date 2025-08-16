@@ -3,6 +3,7 @@
 #include "../Executable.h"
 #include "elf.h"
 #include <variant>
+#include <QVector>
 
 // Class for internal use of ELFFile
 class ELFCore
@@ -98,6 +99,9 @@ protected:
     template<typename ShdrT>
     std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariantT() const;
 
+    // for the following containers, we need to make a choice
+    // between using QVector and QList.
+
     // Pointers to the ELF structures
     // Using std::variant to hold either Elf32 or Elf64 structures
     // This allows us to handle both 32-bit and 64-bit ELF files in a type-safe manner
@@ -107,10 +111,12 @@ protected:
     std::variant<Elf32_Phdr*, Elf64_Phdr*> phdrs;
     // temporary so our program still builds.
     std::vector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> _phdrs;
+    QVector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> __phdrs;
+
 
     std::variant<Elf32_Shdr*, Elf64_Shdr*> shdrs;
     // temporary so our program still builds.
     std::vector<std::variant<Elf32_Shdr*, Elf64_Shdr*>> _shdrs;
-
+    QVector<std::variant<Elf32_Shdr*, Elf64_Shdr*>> __shdrs;
 friend class ELFFile;
 };

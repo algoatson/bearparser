@@ -53,6 +53,7 @@ bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFrom
             throw ExeException("Could not wrap ELFCore: invalid Program Header at index " + QString::number(i) + "!");
 
         _phdrs.push_back(phdr);
+        __phdrs.push_back(phdr);
         qDebug() << sizeof(PhdrT) << "bytes for Program Header";
         qDebug() << "Program Header @" << phdr << " #" << i << ": Type=" << phdr->p_type << ", Offset=" << phdr->p_offset << ", VAddr=" << phdr->p_vaddr << ", PAddr=" << phdr->p_paddr << ", FileSz=" << phdr->p_filesz << ", MemSz=" << phdr->p_memsz << ", Flags=" << phdr->p_flags << ", Align=" << phdr->p_align;
     }
@@ -69,6 +70,7 @@ bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFrom
                 throw ExeException("Could not wrap ELFCore: invalid Section Header at index " + QString::number(i) + "!");
             
             _shdrs.push_back(shdr);
+            __shdrs.push_back(shdr);
             qDebug() << sizeof(ShdrT) << "bytes for Section Header";
             qDebug() << "Section Header @" << shdr << " #" << i << ": Name=" << shdr->sh_name << ", Type=" << shdr->sh_type << ", Flags=" << shdr->sh_flags;
         }
