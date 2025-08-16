@@ -24,24 +24,10 @@ constexpr bool isValidProgramHeaderType() {
 template<typename ShdrT>
 constexpr bool isValidSectionHeaderType() {
     return std::is_same_v<ShdrT, Elf32_Shdr> || std::is_same_v<ShdrT, Elf64_Shdr>;
-}   
-
-template <typename HdrT>
-void isValidType() {
-    static_assert(isValidElfHeaderType<HdrT>() || isValidProgramHeaderType<HdrT>() || isValidSectionHeaderType<HdrT>(),
-                  "Invalid type passed to isValidType<HdrT>() — must be Elf32_Ehdr, Elf64_Ehdr, Elf32_Phdr, Elf64_Phdr, Elf32_Shdr or Elf64_Shdr");
-
-    return;
 }
 
 template <typename EhdrT, typename PhdrT, typename ShdrT>
 bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFromBuffer) {
-    // compile-time check to ensure EhdrT is either Elf32_Ehdr or Elf64_Ehdr
-    // shouldn't impact runtime performance.
-    // isValidType<EhdrT>();
-    // isValidType<PhdrT>();
-    // isValidType<ShdrT>();
-
     // compile-time check to ensure proper types are passed
     // shouldn't impact runtime performance.
     static_assert(isValidElfHeaderType<EhdrT>(),     "Invalid type passed to wrapElfHeaders<EhdrT, PhdrT, ShdrT>() — EhdrT must be of type Elf32_Ehdr or Elf64_Ehdr");
@@ -50,7 +36,6 @@ bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFrom
     
     buf = v_buf;
     ehdr = getStructAt<EhdrT>(buf, 0, sizeof(EhdrT), allowExceptionsFromBuffer);
-
     if (isVariantNullptr(this->ehdr))
         throw ExeException("Could not wrap ELFCore: invalid ELF Header!");
 
@@ -60,9 +45,36 @@ bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFrom
     if (isVariantNullptr(this->phdrs))
         throw ExeException("Could not wrap ELFCore: invalid Program Header!");
 
+    for (size_t i = 0; i < ehdrPtr->e_phnum; ++i) {
+        // less-safe one-liner:
+        // _phdrs.puch_back(getStructAt<PhdrT>(buf, ehdrPtr->e_phoff + i * sizeof(PhdrT), sizeof(PhdrT), allowExceptionsFromBuffer));
+        PhdrT *phdr = getStructAt<PhdrT>(buf, ehdrPtr->e_phoff + i * sizeof(PhdrT), sizeof(PhdrT), allowExceptionsFromBuffer);
+        if (!phdr)
+            throw ExeException("Could not wrap ELFCore: invalid Program Header at index " + QString::number(i) + "!");
+
+        _phdrs.push_back(phdr);
+        qDebug() << sizeof(PhdrT) << "bytes for Program Header";
+        qDebug() << "Program Header @" << phdr << " #" << i << ": Type=" << phdr->p_type << ", Offset=" << phdr->p_offset << ", VAddr=" << phdr->p_vaddr << ", PAddr=" << phdr->p_paddr << ", FileSz=" << phdr->p_filesz << ", MemSz=" << phdr->p_memsz << ", Flags=" << phdr->p_flags << ", Align=" << phdr->p_align;
+    }
+        
     if (ehdrPtr->e_shoff != 0 && ehdrPtr->e_shnum != 0)
         this->shdrs = getStructAt<ShdrT>(buf, ehdrPtr->e_shoff, ehdrPtr->e_shnum, allowExceptionsFromBuffer);
-    if (isVariantNullptr(this->shdrs))
+    
+    if (ehdrPtr->e_shoff != 0 && ehdrPtr->e_shnum != 0) {
+        for (size_t i = 0; i < ehdrPtr->e_shnum; ++i) {
+            // less-safe one-liner:
+            // _shdrs.push_back(getStructAt<ShdrT>(buf, ehdrPtr->e_shoff + i * sizeof(ShdrT), sizeof(ShdrT), allowExceptionsFromBuffer));
+            ShdrT *shdr = getStructAt<ShdrT>(buf, ehdrPtr->e_shoff + i * sizeof(ShdrT), sizeof(ShdrT), allowExceptionsFromBuffer);
+            if (!shdr)
+                throw ExeException("Could not wrap ELFCore: invalid Section Header at index " + QString::number(i) + "!");
+            
+            _shdrs.push_back(shdr);
+            qDebug() << sizeof(ShdrT) << "bytes for Section Header";
+            qDebug() << "Section Header @" << shdr << " #" << i << ": Name=" << shdr->sh_name << ", Type=" << shdr->sh_type << ", Flags=" << shdr->sh_flags;
+        }
+    }
+    
+        if (isVariantNullptr(this->shdrs))
         throw ExeException("Could not wrap ELFCore: invalid Section Header!");
 
     return true;
@@ -74,10 +86,16 @@ void ELFCore::reset() {
 
     // Reset the variants to their default state.
     // This is necessary to ensure that the variant does not hold onto 
-    // any previous pointers and is ready for a new wrap operation.
-    ehdr.emplace<Elf64_Ehdr*>(nullptr);
-    phdrs.emplace<Elf64_Phdr*>(nullptr);
-    shdrs.emplace<Elf64_Shdr*>(nullptr);
+    // any previous pointers and is ready for a new wrap operation
+    // ehdr.emplace<Elf64_Ehdr*>(nullptr);
+    // phdrs.emplace<Elf64_Phdr*>(nullptr);
+    // shdrs.emplace<Elf64_Shdr*>(nullptr);
+
+    // the following is equivalent to the above three lines.
+    // this results in faster resetting of the variants.
+    ehdr = std::variant<Elf32_Ehdr*, Elf64_Ehdr*>{};
+    phdrs = std::variant<Elf32_Phdr*, Elf64_Phdr*>{};
+    shdrs = std::variant<Elf32_Shdr*, Elf64_Shdr*>{};
 
     // Uncache variables
     cachedImageBase = UINT64_MAX;
@@ -159,7 +177,7 @@ bufsize_t ELFCore::getImageSize() const {
             minBase = std::min(minBase, start);
             maxEnd  = std::max(maxEnd, end);
         }
-    }, getPhdrsVariant());
+    }, this->getPhdrsVariant());
 
     if (minBase == UINT64_MAX || maxEnd == 0) {
         cachedImageSize = 0;
@@ -245,7 +263,7 @@ bufsize_t ELFCore::getVirtualSize() const {
             minBase = std::min(minBase, start);
             maxEnd = std::max(maxEnd, end);
         }
-    }, getPhdrsVariant());
+    }, this->getPhdrsVariant());
 
     if (minBase == UINT64_MAX) return 0;
     return maxEnd - minBase;
@@ -351,10 +369,14 @@ T* ELFCore::getElfHeader() const {
     static_assert(std::is_same_v<T, Elf32_Ehdr> || std::is_same_v<T, Elf64_Ehdr>,
                   "Invalid type passed to getElfHeader<T>() — must be Elf32_Ehdr or Elf64_Ehdr");
     
-    if (std::holds_alternative<T*>(ehdr)) {
-        return std::get<T*>(ehdr);
-    }
-    return nullptr;
+    // if (std::holds_alternative<T*>(ehdr)) {
+    //     return std::get<T*>(ehdr);
+    // }
+    // return nullptr;
+
+    // an even better way to achieve the preceding is using get_if.
+    auto ptr = std::get_if<T*>(&ehdr);
+    return ptr ? *ptr : nullptr;
 }
 
 // templated getters for Program and Section headers
@@ -364,10 +386,14 @@ T* ELFCore::getProgramHeaders() const {
     static_assert(std::is_same_v<T, Elf32_Phdr> || std::is_same_v<T, Elf64_Phdr>,
                   "Invalid type passed to getProgramHeaders<T>() — must be Elf32_Phdr or Elf64_Phdr");
     
-    if (std::holds_alternative<T*>(phdrs)) {
-        return std::get<T*>(phdrs);
-    }
-    return nullptr;
+    // if (std::holds_alternative<T*>(phdrs)) {
+    //     return std::get<T*>(phdrs);
+    // }
+    // return nullptr;
+
+    // an even better way to achieve the preceding is using get_if.
+    auto ptr = std::get_if<T*>(&phdrs);
+    return ptr ? *ptr : nullptr;
 }
 
 template <typename T>
@@ -376,8 +402,12 @@ T* ELFCore::getSectionHeaders() const {
     static_assert(std::is_same_v<T, Elf32_Shdr> || std::is_same_v<T, Elf64_Shdr>,
                   "Invalid type passed to getSectionHeaders<T>() — must be Elf32_Shdr or Elf64_Shdr");
     
-    if (std::holds_alternative<T*>(shdrs)) {
-        return std::get<T*>(shdrs);
-    }
-    return nullptr;
+    // if (std::holds_alternative<T*>(shdrs)) {
+    //     return std::get<T*>(shdrs);
+    // }
+    // return nullptr;
+
+    // an even better way to achieve the preceding is using get_if.
+    auto ptr = std::get_if<T*>(&shdrs);
+    return ptr ? *ptr : nullptr;
 }

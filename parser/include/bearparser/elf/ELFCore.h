@@ -16,7 +16,7 @@ public:
         shdrs(static_cast<Elf32_Shdr*>(nullptr)) 
     {}
 
-    virtual ~ELFCore() { /*reset();*/ }
+    virtual ~ELFCore() { reset(); }
 
     bool wrap(AbstractByteBuffer *v_buf);
 
@@ -36,11 +36,22 @@ public:
     Executable::exe_arch getHdrArch() const;
 
     offset_t elfSectionHdrsOffset() const;
+    offset_t elfSectionHdrsOffset(int idx) const;
+    
     offset_t elfProgramHdrsOffset() const;
+    offset_t elfProgramHdrsOffset(int idx) const;
+    
     bufsize_t elfSectionHdrsSize()  const;
+    bufsize_t elfSectionHdrsSize(int idx)  const;
+    
     bufsize_t elfProgramHdrsSize()  const;
+    bufsize_t elfProgramHdrsSize(int idx)  const;
+    
     size_t elfProgramHdrsCount()    const;
+    size_t elfProgramHdrsCount(int idx)    const;
+    
     size_t elfSectionHdrsCount()    const;
+    size_t elfSectionHdrsCount(int idx)    const;
 
 private:
     // caching variables to avoid unecessary loops.
@@ -91,8 +102,15 @@ protected:
     // Using std::variant to hold either Elf32 or Elf64 structures
     // This allows us to handle both 32-bit and 64-bit ELF files in a type-safe manner
     std::variant<Elf32_Ehdr*, Elf64_Ehdr*> ehdr;
+    // need to change these to std::vector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> 
+    // if we want to support multiple program headers
     std::variant<Elf32_Phdr*, Elf64_Phdr*> phdrs;
+    // temporary so our program still builds.
+    std::vector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> _phdrs;
+
     std::variant<Elf32_Shdr*, Elf64_Shdr*> shdrs;
+    // temporary so our program still builds.
+    std::vector<std::variant<Elf32_Shdr*, Elf64_Shdr*>> _shdrs;
 
 friend class ELFFile;
 };
