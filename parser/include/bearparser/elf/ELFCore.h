@@ -23,12 +23,11 @@ public:
 
     // Header info
     virtual offset_t getEntryPoint() const;
+    virtual offset_t getRawSize() const;
     virtual offset_t getImageBase() const;
-    virtual offset_t getRawSize() const { return buf ? static_cast<offset_t>(buf->getContentSize()) : 0; }
     virtual bufsize_t getVirtualSize() const;
     virtual bufsize_t getImageSize() const;
     virtual bufsize_t getAlignment() const;
-
     Executable::exe_bits getHdrBitMode() const;
     Executable::exe_arch getHdrArch() const;
 
@@ -71,7 +70,12 @@ private:
     template <typename T> T* getElfHeader() const;
     template <typename T> T* getProgramHeaders() const;
     template <typename T> T* getSectionHeaders() const;
-
+    
+    // Cache
+    offset_t cacheImageBase()    const;
+    bufsize_t cacheVirtualSize() const;
+    bufsize_t cacheImageSize()   const;
+    bufsize_t cacheAlignment()   const;
     QVector<QString> cacheSectionNames() const;
 
     // Variant helpers
@@ -106,6 +110,12 @@ private:
     mutable offset_t cachedImageBase  = UINT64_MAX;
     mutable bool cachedImageBaseValid = false;
     
+    mutable bufsize_t cachedVirtualSize = 0;
+    mutable bool cachedVirtualSizeValid = false;
+
+    mutable bufsize_t cachedAlignment = 0;
+    mutable bool cachedAlignmentValid = false;
+
     mutable QVector<QString> cachedSectionNames;
     mutable bool cachedSectionNamesValid = false;
 

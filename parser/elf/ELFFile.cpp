@@ -81,7 +81,7 @@ bufsize_t ELFFile::getMappedSize(Executable::addr_type aType) {
     constexpr size_t unit_size = 0x1000;
 
     if (aType == Executable::VA || aType == Executable::RVA) {
-        bufsize_t vSize = core.getVirtualSize();
+        bufsize_t vSize = core.cacheVirtualSize();
         return (vSize < unit_size) ? unit_size : vSize;
     }
 

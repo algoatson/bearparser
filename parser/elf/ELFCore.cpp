@@ -50,7 +50,7 @@ bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFrom
     for (size_t i = 0; i < ehdrPtr->e_phnum; ++i) {
         // less-safe one-liner:
         // _phdrs.puch_back(getStructAt<PhdrT>(buf, ehdrPtr->e_phoff + i * sizeof(PhdrT), sizeof(PhdrT), allowExceptionsFromBuffer));
-        PhdrT *phdr = getStructAt<PhdrT>(buf, ehdrPtr->e_phoff + i * sizeof(PhdrT), sizeof(PhdrT), allowExceptionsFromBuffer);
+        PhdrT *phdr = getStructAt<PhdrT>(buf, ehdrPtr->e_phoff + i * sizeof(PhdrT), 1, allowExceptionsFromBuffer);
         if (!phdr)
             throw ExeException("Could not wrap ELFCore: invalid Program Header at index " + QString::number(i) + "!");
 
@@ -64,7 +64,7 @@ bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFrom
         for (size_t i = 0; i < ehdrPtr->e_shnum; ++i) {
             // less-safe one-liner:
             // _shdrs.push_back(getStructAt<ShdrT>(buf, ehdrPtr->e_shoff + i * sizeof(ShdrT), sizeof(ShdrT), allowExceptionsFromBuffer));
-            ShdrT *shdr = getStructAt<ShdrT>(buf, ehdrPtr->e_shoff + i * sizeof(ShdrT), sizeof(ShdrT), allowExceptionsFromBuffer);
+            ShdrT *shdr = getStructAt<ShdrT>(buf, ehdrPtr->e_shoff + i * sizeof(ShdrT), 1, allowExceptionsFromBuffer);
             if (!shdr)
                 throw ExeException("Could not wrap ELFCore: invalid Section Header at index " + QString::number(i) + "!");
             
@@ -145,7 +145,7 @@ bool ELFCore::wrap(AbstractByteBuffer *buf) {
 //     }, phdrs);
 // }
 
-bufsize_t ELFCore::getAlignment() const {
+bufsize_t ELFCore::cacheAlignment() const {
     bufsize_t alignment = 1;
 
     std::visit([&](auto phdrsPtr) {
@@ -163,7 +163,7 @@ bufsize_t ELFCore::getAlignment() const {
     return alignment;
 }
 
-bufsize_t ELFCore::getImageSize() const {
+bufsize_t ELFCore::cacheImageSize() const {
     if (cachedImageSizeValid) return cachedImageSize;
     
     offset_t maxEnd = 0;
@@ -202,30 +202,47 @@ offset_t ELFCore::getEntryPoint() const {
     }, ehdr);
 }
 
-offset_t ELFCore::getImageBase() const  { 
+offset_t ELFCore::getRawSize() const {
+    return buf ? static_cast<offset_t>(buf->getContentSize()) : 0;
+}
+
+offset_t ELFCore::getImageBase() const {
     if (cachedImageBaseValid) return cachedImageBase;
+    return cacheImageBase();
+}
 
-    if (getProgramHdrsCount() == 0) {
-        cachedImageBase = 0; // No program headers, assume base is 0
-        cachedImageBaseValid = true;
-        return cachedImageBase;
-    }
+bufsize_t ELFCore::getImageSize() const {
+    if (cachedImageSizeValid) return cachedImageSize;
+    return cacheImageSize();
+}
 
+bufsize_t ELFCore::getAlignment() const {
+    if (cachedAlignmentValid) return cachedAlignment;
+    return cacheAlignment();
+}
+
+offset_t ELFCore::getVirtualSize() const {
+    if (cachedVirtualSizeValid) return cachedVirtualSize;
+    return cacheVirtualSize();
+}
+
+offset_t ELFCore::cacheImageBase() const  { 
     offset_t base = UINT64_MAX;
 
-    std::visit([&](auto phdrsPtr) {
-        using PhdrType = std::remove_pointer_t<decltype(phdrsPtr)>;
-        if (!phdrsPtr) return;
+    for (const auto& variantPhdrPtr : __phdrs) {
+        std::visit([&](auto phdrPtr) {
+            using PhdrT = std::remove_pointer_t<decltype(phdrPtr)>;
+            if (!phdrPtr) return;
 
-        for (size_t i = 0; i < getProgramHdrsCount(); ++i) {
-            const PhdrType &phdr = phdrsPtr[i];
+            const PhdrT &phdr = *phdrPtr;
 
-            if (phdr.p_type != PT_LOAD) continue;
+            if (phdr.p_type != PT_LOAD || phdr.p_vaddr < phdr.p_offset) return;
 
             offset_t baseCandidate = static_cast<offset_t>(phdr.p_vaddr - phdr.p_offset);
             base = std::min(base, baseCandidate);
-        }
-    }, phdrs);
+
+        }, variantPhdrPtr);
+    }
 
     // we cache the image base so we don't have to loop again.
     cachedImageBase = (base == UINT64_MAX) ? 0 : base;
@@ -252,7 +269,7 @@ offset_t ELFCore::getImageBase() const  {
 //     return maxEnd;
 // } 
 
-bufsize_t ELFCore::getVirtualSize() const {
+bufsize_t ELFCore::cacheVirtualSize() const {
     offset_t maxEnd = 0;
     offset_t minBase = UINT64_MAX;
 

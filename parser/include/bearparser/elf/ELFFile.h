@@ -44,8 +44,8 @@ public:
     virtual void wrap() { return; }  // inherited from Executable
     
     virtual bufsize_t getMappedSize(Executable::addr_type aType);
-    virtual bufsize_t getAlignment(Executable::addr_type aType) const { return core.getAlignment(); }
-    virtual offset_t getImageBase(bool recalculate = false) { return core.getImageBase(); }
+    virtual bufsize_t getAlignment(Executable::addr_type aType) const { return core.cacheAlignment(); }
+    virtual offset_t getImageBase(bool recalculate = false) { return core.cacheImageBase(); }
     virtual offset_t getEntryPoint(Executable::addr_type addrType = Executable::RVA); // returns INVALID_ADDR if failed
     virtual offset_t rawToRva(offset_t raw) { return 0; }
     virtual offset_t rvaToRaw(offset_t rva) { return 0; }
