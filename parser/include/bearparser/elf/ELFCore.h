@@ -12,13 +12,14 @@ public:
 
     ELFCore() :
         buf(nullptr),
-        ehdr(static_cast<Elf64_Ehdr*>(nullptr)), 
-        phdrs(static_cast<Elf32_Phdr*>(nullptr)), 
-        shdrs(static_cast<Elf32_Shdr*>(nullptr)) 
+        ehdr{}, 
+        phdrs{}, 
+        shdrs{} 
     {}
 
     virtual ~ELFCore() { reset(); }
 
+protected:
     bool wrap(AbstractByteBuffer *v_buf);
 
     // Header info
@@ -42,8 +43,8 @@ public:
     bufsize_t getSectionHdrsSize()  const;
 
     // Headers access by index
-    offset_t getProgramHdrByIndex(int idx) const;
-    offset_t getSectionHdrByIndex(int idx) const;
+    std::variant<Elf32_Phdr*, Elf64_Phdr*> getProgramHdrByIndex(int idx) const;
+    std::variant<Elf32_Shdr*, Elf64_Shdr*> getSectionHdrByIndex(int idx) const;
     bufsize_t getSectionHdrSizeByIndex(int idx)  const;
     bufsize_t getProgramHdrSizeByIndex(int idx)  const;
 
@@ -68,8 +69,8 @@ private:
     bool wrapElfHeaders(AbstractByteBuffer* buf, bool allowExceptionsFromBuffer);
 
     template <typename T> T* getElfHeader() const;
-    template <typename T> T* getProgramHeaders() const;
-    template <typename T> T* getSectionHeaders() const;
+    // template <typename T> T* getProgramHeaders() const;
+    // template <typename T> T* getSectionHeaders() const;
     
     // Cache
     offset_t cacheImageBase()    const;
@@ -77,16 +78,6 @@ private:
     bufsize_t cacheImageSize()   const;
     bufsize_t cacheAlignment()   const;
     QVector<QString> cacheSectionNames() const;
-
-    // Variant helpers
-    std::variant<Elf32_Ehdr*, Elf64_Ehdr*> getEhdrVariant() const;
-    template<typename EhdrT> std::variant<Elf32_Ehdr*, Elf64_Ehdr*> getEhdrVariantT() const;
-    
-    std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariant() const;
-    template<typename PhdrT> std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariantT() const;
-
-    std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariant() const;
-    template<typename ShdrT> std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariantT() const;
 
 protected:
     void reset();
@@ -97,11 +88,18 @@ private:
     AbstractByteBuffer *buf;
 
     std::variant<Elf32_Ehdr*, Elf64_Ehdr*> ehdr;
-    std::variant<Elf32_Phdr*, Elf64_Phdr*> phdrs;
-    std::variant<Elf32_Shdr*, Elf64_Shdr*> shdrs;
+    QVector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> phdrs;
+    QVector<std::variant<Elf32_Shdr*, Elf64_Shdr*>> shdrs;
 
-    QVector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> __phdrs;
-    QVector<std::variant<Elf32_Shdr*, Elf64_Shdr*>> __shdrs;
+    // Variant helpers
+    std::variant<Elf32_Ehdr*, Elf64_Ehdr*> getEhdrVariant() const;
+    template<typename EhdrT> std::variant<Elf32_Ehdr*, Elf64_Ehdr*> getEhdrVariantT() const;
+    
+    // std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariant() const;
+    // template<typename PhdrT> std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariantT() const;
+
+    // std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariant() const;
+    // template<typename ShdrT> std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariantT() const;
 
     // Caching
     mutable offset_t cachedImageSize  = 0;

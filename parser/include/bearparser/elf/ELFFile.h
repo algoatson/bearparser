@@ -54,14 +54,22 @@ public:
     std::variant<Elf32_Ehdr*, Elf64_Ehdr*> getEhdrVariant() const {
         return core.getEhdrVariant();
     }
-    
-    std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariant() const {
-        return core.getPhdrsVariant();
+
+    QVector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> getProgramHeaders() const {
+        return core.getProgramHeaders();
     }
 
-    std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariant() const {
-        return core.getShdrsVariant();
+    QVector<std::variant<Elf32_Shdr*, Elf64_Shdr*>> getSectionHeaders() const {
+        return core.getSectionHeaders();
     }
+    
+    // std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariant() const {
+    //     return core.getPhdrsVariant();
+    // }
+
+    // std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariant() const {
+    //     return core.getShdrsVariant();
+    // }
 
     virtual exe_bits getHdrBitMode() { return core.getHdrBitMode(); }
     virtual exe_arch getArch() { return ARCH_UNKNOWN; }

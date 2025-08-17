@@ -2,20 +2,21 @@
 #include "elf/ELFFile.h"
 
 ElfSectHdrWrapper::ElfSectHdrWrapper(ELFFile *elfExe)
-    : ELFElementWrapper(elfExe),
-      shdrs(static_cast<Elf64_Shdr*>(nullptr)) 
+    : ELFElementWrapper(elfExe), shdrs {} 
     {
+        wrap();
         qInfo() << "Section Headers Entry Size:" << getEntrySize();
         qInfo() << "Section Headers Size:" << getSize();
-        wrap();
 
         void *ptr = getPtr();
         qInfo() << "ELF Section Header is located at:" << ptr;
     } 
 
 bool ElfSectHdrWrapper::wrap() {
-    shdrs = m_ELF->getShdrsVariant();
-    return std::visit([](auto *ptr){ return ptr != nullptr; }, shdrs);
+    // shdrs = m_ELF->getShdrsVariant();
+    // return std::visit([](auto *ptr){ return ptr != nullptr; }, shdrs);
+    shdrs = m_ELF->getSectionHeaders();
+    return shdrs.size() > 0;
 }
 
 void *ElfSectHdrWrapper::getPtr() {
@@ -23,10 +24,11 @@ void *ElfSectHdrWrapper::getPtr() {
 }
 
 bufsize_t ElfSectHdrWrapper::getEntrySize() {
+    if (shdrs.isEmpty()) return 0;
     return std::visit([](auto *ptr) {
         using T = std::remove_pointer_t<decltype(ptr)>;
         return sizeof(T);
-    }, shdrs);
+    }, shdrs[0]);
 }
 
 bufsize_t ElfSectHdrWrapper::getSize() {

@@ -41,6 +41,6 @@ public:
     virtual QString getFieldName(size_t fieldId) { }
     virtual Executable::addr_type containsAddrType(size_t fieldId, size_t subField = FIELD_NONE) { }
 protected:
-    std::variant<Elf32_Phdr*, Elf64_Phdr*> phdrs;
+    QVector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> phdrs;
 
 };

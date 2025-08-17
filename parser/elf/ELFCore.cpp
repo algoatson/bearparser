@@ -43,9 +43,9 @@ bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFrom
 
     EhdrT *ehdrPtr = std::get<EhdrT*>(this->ehdr);
 
-    this->phdrs = getStructAt<PhdrT>(buf, ehdrPtr->e_phoff, ehdrPtr->e_phnum, allowExceptionsFromBuffer);
-    if (isVariantNullptr(this->phdrs))
-        throw ExeException("Could not wrap ELFCore: invalid Program Header!");
+    // this->phdrs = getStructAt<PhdrT>(buf, ehdrPtr->e_phoff, ehdrPtr->e_phnum, allowExceptionsFromBuffer);
+    // if (isVariantNullptr(this->phdrs))
+    //     throw ExeException("Could not wrap ELFCore: invalid Program Header!");
 
     for (size_t i = 0; i < ehdrPtr->e_phnum; ++i) {
         // less-safe one-liner:
@@ -54,12 +54,14 @@ bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFrom
         if (!phdr)
             throw ExeException("Could not wrap ELFCore: invalid Program Header at index " + QString::number(i) + "!");
 
-        __phdrs.push_back(phdr);
+        phdrs.push_back(phdr);
     }
         
-    if (ehdrPtr->e_shoff != 0 && ehdrPtr->e_shnum != 0)
-        this->shdrs = getStructAt<ShdrT>(buf, ehdrPtr->e_shoff, ehdrPtr->e_shnum, allowExceptionsFromBuffer);
-    
+    // if (ehdrPtr->e_shoff != 0 && ehdrPtr->e_shnum != 0)
+    //     this->shdrs = getStructAt<ShdrT>(buf, ehdrPtr->e_shoff, ehdrPtr->e_shnum, allowExceptionsFromBuffer);
+    // if (isVariantNullptr(this->shdrs))
+    //     throw ExeException("Could not wrap ELFCore: invalid Section Header!");
+
     if (ehdrPtr->e_shoff != 0 && ehdrPtr->e_shnum != 0) {
         for (size_t i = 0; i < ehdrPtr->e_shnum; ++i) {
             // less-safe one-liner:
@@ -68,7 +70,7 @@ bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFrom
             if (!shdr)
                 throw ExeException("Could not wrap ELFCore: invalid Section Header at index " + QString::number(i) + "!");
             
-            __shdrs.push_back(shdr);
+            shdrs.push_back(shdr);
         }
     }
 
@@ -77,9 +79,6 @@ bool ELFCore::wrapElfHeaders(AbstractByteBuffer* v_buf, bool allowExceptionsFrom
     for (int i = 0; i < getSectionHdrsCount(); ++i)
         qDebug() << "Section Header" << i << "has name:" << cachedSectionNames[i];
     
-    if (isVariantNullptr(this->shdrs))
-        throw ExeException("Could not wrap ELFCore: invalid Section Header!");
-
     return true;
 }
 
@@ -96,16 +95,22 @@ void ELFCore::reset() {
 
     // the following is equivalent to the above three lines.
     // this results in faster resetting of the variants.
-    ehdr = std::variant<Elf32_Ehdr*, Elf64_Ehdr*>{};
-    phdrs = std::variant<Elf32_Phdr*, Elf64_Phdr*>{};
-    shdrs = std::variant<Elf32_Shdr*, Elf64_Shdr*>{};
+    ehdr = {};
+    phdrs.clear();
+    shdrs.clear();
 
     // Uncache variables
+    cachedImageSize = 0;
+    cachedImageSizeValid = false;
+
     cachedImageBase = UINT64_MAX;
     cachedImageBaseValid = false;
 
-    cachedImageSize = 0;
-    cachedImageSizeValid = false;
+    cachedVirtualSize = 0;
+    cachedVirtualSizeValid = false;
+
+    cachedAlignment = 0;
+    cachedAlignmentValid = false;
 
     cachedSectionNames.clear();
     cachedSectionNamesValid = false;
@@ -146,44 +151,45 @@ bool ELFCore::wrap(AbstractByteBuffer *buf) {
 // }
 
 bufsize_t ELFCore::cacheAlignment() const {
-    bufsize_t alignment = 1;
+    cachedAlignment = 1;
 
-    std::visit([&](auto phdrsPtr) {
-        using PhdrT = std::remove_pointer_t<decltype(phdrsPtr)>;
-        if (!phdrsPtr) return;
+    for (const auto& variantPhdrPtr : phdrs) {
+        std::visit([&](auto phdrPtr) {
+            using PhdrT = std::remove_pointer_t<decltype(phdrPtr)>;
+            if (!phdrPtr) return;
 
-        for (size_t i = 0; i < getProgramHdrsCount(); ++i) {
-            const PhdrT &phdr = phdrsPtr[i];
-            if (phdr.p_type != PT_LOAD) continue;
+            const PhdrT &phdr = *phdrPtr;
+            if (phdr.p_type != PT_LOAD) return;
 
-            alignment = std::max(alignment, static_cast<bufsize_t>(phdr.p_align));
-        }
-    }, phdrs);
-
-    return alignment;
+            cachedAlignment = std::max(cachedAlignment, static_cast<bufsize_t>(phdr.p_align));
+        }, variantPhdrPtr);
+    }
+    
+    cachedAlignmentValid = true;
+    return cachedAlignment;
 }
 
 bufsize_t ELFCore::cacheImageSize() const {
-    if (cachedImageSizeValid) return cachedImageSize;
-    
     offset_t maxEnd = 0;
     offset_t minBase = UINT64_MAX;
 
-    std::visit([&](auto phdrsPtr) {
-        using PhdrT = std::remove_pointer_t<decltype(phdrsPtr)>;
-        if (!phdrsPtr) return;
+    for (const auto& variantPhdrPtr : phdrs) {
+        if (isVariantNullptr(variantPhdrPtr)) continue;
 
-        for (size_t i = 0; i < this->getProgramHdrsCount(); ++i) {
-            const PhdrT &phdr = phdrsPtr[i];
-            if (phdr.p_type != PT_LOAD) continue;
+        std::visit([&](auto phdrPtr) {
+            using PhdrT = std::remove_pointer_t<decltype(phdrPtr)>;
+            if (!phdrPtr) return;
+
+            const PhdrT &phdr = *phdrPtr;
+            if (phdr.p_type != PT_LOAD) return;
 
             offset_t start = static_cast<offset_t>(phdr.p_vaddr);
-            offset_t   end = static_cast<offset_t>(start + phdr.p_memsz);
+            offset_t end = static_cast<offset_t>(start + phdr.p_memsz);
 
             minBase = std::min(minBase, start);
-            maxEnd  = std::max(maxEnd, end);
-        }
-    }, phdrs);
+            maxEnd = std::max(maxEnd, end);
+        }, variantPhdrPtr);
+    }
 
     if (minBase == UINT64_MAX || maxEnd == 0) {
         cachedImageSize = 0;
@@ -229,7 +235,7 @@ offset_t ELFCore::getVirtualSize() const {
 offset_t ELFCore::cacheImageBase() const  { 
     offset_t base = UINT64_MAX;
 
-    for (const auto& variantPhdrPtr : __phdrs) {
+    for (const auto& variantPhdrPtr : phdrs) {
         std::visit([&](auto phdrPtr) {
             using PhdrT = std::remove_pointer_t<decltype(phdrPtr)>;
             if (!phdrPtr) return;
@@ -273,24 +279,29 @@ bufsize_t ELFCore::cacheVirtualSize() const {
     offset_t maxEnd = 0;
     offset_t minBase = UINT64_MAX;
 
-    std::visit([&](auto phdrsPtr) {
-        using PhdrT = std::remove_pointer_t<decltype(phdrsPtr)>;
-        if (!phdrsPtr) return;
+    for (const auto& variantPhdrPtr : phdrs) {
+        std::visit([&](auto phdrPtr) {
+            using PhdrT = std::remove_pointer_t<decltype(phdrPtr)>;
+            if (!phdrPtr) return;
 
-        for (size_t i = 0; i < getProgramHdrsCount(); ++i) {
-            const PhdrT &phdr = phdrsPtr[i];
-            if (phdr.p_type != PT_LOAD) continue;
+            const PhdrT &phdr = *phdrPtr;
+            if (phdr.p_type != PT_LOAD) return;
 
             offset_t start = static_cast<offset_t>(phdr.p_vaddr);
             offset_t end = static_cast<offset_t>(start + phdr.p_memsz);
 
             minBase = std::min(minBase, start);
             maxEnd = std::max(maxEnd, end);
-        }
-    }, phdrs);
+        }, variantPhdrPtr);
+    }
 
-    if (minBase == UINT64_MAX) return 0;
-    return maxEnd - minBase;
+    if (minBase == UINT64_MAX) {
+        cachedVirtualSize = 0;
+    } else {
+        cachedVirtualSize = maxEnd - minBase;
+    }
+    cachedVirtualSizeValid = true;
+    return cachedVirtualSize;
 }
 
 Executable::exe_bits ELFCore::getHdrBitMode() const {
@@ -355,11 +366,18 @@ size_t ELFCore::getSectionHdrsCount() const {
 }
 
 QVector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> ELFCore::getProgramHeaders() const {
-    return __phdrs;
+    return phdrs;
 } 
 
 QVector<std::variant<Elf32_Shdr*, Elf64_Shdr*>> ELFCore::getSectionHeaders() const {
-    return __shdrs;
+    return shdrs;
+}
+
+std::variant<Elf32_Shdr*, Elf64_Shdr*> ELFCore::getSectionHdrByIndex(int idx) const {
+    if (idx < 0 || idx >= shdrs.size())
+        return {};
+
+    return shdrs[idx];
 }
 
 QString ELFCore::getSectionNameByIndex(int idx) const {
@@ -375,7 +393,7 @@ QString ELFCore::getSectionNameByIndex(int idx) const {
     if (shstrndx < 0 || shstrndx >= getSectionHdrsCount())
         throw ExeException("Invalid section string table index: " + QString::number(shstrndx));
 
-    auto shstrtabVar = __shdrs[shstrndx];
+    auto shstrtabVar = shdrs[shstrndx];
     offset_t strtabOffset = std::visit([](auto shdrsPtr) -> offset_t {
         if (!shdrsPtr) return 0;
         return shdrsPtr->sh_offset; // Offset of the section string table
@@ -390,7 +408,7 @@ QString ELFCore::getSectionNameByIndex(int idx) const {
         const char* namePtr = reinterpret_cast<const char*>(buf->getContentAt(nameOffset, 256, false));
         if (!namePtr) return QString();
         return QString::fromUtf8(namePtr);
-    }, __shdrs[idx]);
+    }, shdrs[idx]);
 }
 
 QVector<QString> ELFCore::cacheSectionNames() const {
@@ -426,30 +444,31 @@ std::variant<Elf32_Ehdr*, Elf64_Ehdr*> ELFCore::getEhdrVariant() const {
     return getElfHeader<Elf32_Ehdr>();
 }
 
-std::variant<Elf32_Phdr*, Elf64_Phdr*> ELFCore::getPhdrsVariant() const {
-    if (is64()) return getProgramHeaders<Elf64_Phdr>();
-    return getProgramHeaders<Elf32_Phdr>();
-}
 
-std::variant<Elf32_Shdr*, Elf64_Shdr*> ELFCore::getShdrsVariant() const {
-    if (is64()) return getSectionHeaders<Elf64_Shdr>();
-    return getSectionHeaders<Elf32_Shdr>();
-}
+// std::variant<Elf32_Phdr*, Elf64_Phdr*> ELFCore::getPhdrsVariant() const {
+//     if (is64()) return getProgramHeaders<Elf64_Phdr>();
+//     return getProgramHeaders<Elf32_Phdr>();
+// }
+
+// std::variant<Elf32_Shdr*, Elf64_Shdr*> ELFCore::getShdrsVariant() const {
+//     if (is64()) return getSectionHeaders<Elf64_Shdr>();
+//     return getSectionHeaders<Elf32_Shdr>();
+// }
 
 template<typename EhdrT>
 std::variant<Elf32_Ehdr*, Elf64_Ehdr*> ELFCore::getEhdrVariantT() const {
     return getElfHeader<EhdrT>();
 }
 
-template<typename PhdrT>
-std::variant<Elf32_Phdr*, Elf64_Phdr*> ELFCore::getPhdrsVariantT() const {
-    return getProgramHeaders<PhdrT>();
-}
+// template<typename PhdrT>
+// std::variant<Elf32_Phdr*, Elf64_Phdr*> ELFCore::getPhdrsVariantT() const {
+//     return getProgramHeaders<PhdrT>();
+// }
 
-template<typename ShdrT>
-std::variant<Elf32_Shdr*, Elf64_Shdr*> ELFCore::getShdrsVariantT() const {
-    return getSectionHeaders<ShdrT>();
-}
+// template<typename ShdrT>
+// std::variant<Elf32_Shdr*, Elf64_Shdr*> ELFCore::getShdrsVariantT() const {
+//     return getSectionHeaders<ShdrT>();
+// }
 
 // templated getters for ELF structures
 template <typename T>
@@ -464,24 +483,24 @@ T* ELFCore::getElfHeader() const {
 }
 
 // templated getters for Program and Section headers
-template <typename T>
-T* ELFCore::getProgramHeaders() const {
-    // compile-time check to ensure T is either Elf32_Phdr or Elf64_Phdr
-    static_assert(std::is_same_v<T, Elf32_Phdr> || std::is_same_v<T, Elf64_Phdr>,
-                  "Invalid type passed to getProgramHeaders<T>() — must be Elf32_Phdr or Elf64_Phdr");
+// template <typename T>
+// T* ELFCore::getProgramHeaders() const {
+//     // compile-time check to ensure T is either Elf32_Phdr or Elf64_Phdr
+//     static_assert(std::is_same_v<T, Elf32_Phdr> || std::is_same_v<T, Elf64_Phdr>,
+//                   "Invalid type passed to getProgramHeaders<T>() — must be Elf32_Phdr or Elf64_Phdr");
 
-    // an even better way to achieve the preceding is using get_if.
-    auto ptr = std::get_if<T*>(&phdrs);
-    return ptr ? *ptr : nullptr;
-}
+//     // an even better way to achieve the preceding is using get_if.
+//     auto ptr = std::get_if<T*>(&phdrs);
+//     return ptr ? *ptr : nullptr;
+// }
 
-template <typename T>
-T* ELFCore::getSectionHeaders() const {
-    // compile-time check to ensure T is either Elf32_Shdr or Elf64_Shdr
-    static_assert(std::is_same_v<T, Elf32_Shdr> || std::is_same_v<T, Elf64_Shdr>,
-                  "Invalid type passed to getSectionHeaders<T>() — must be Elf32_Shdr or Elf64_Shdr");
+// template <typename T>
+// T* ELFCore::getSectionHeaders() const {
+//     // compile-time check to ensure T is either Elf32_Shdr or Elf64_Shdr
+//     static_assert(std::is_same_v<T, Elf32_Shdr> || std::is_same_v<T, Elf64_Shdr>,
+//                   "Invalid type passed to getSectionHeaders<T>() — must be Elf32_Shdr or Elf64_Shdr");
     
-    // an even better way to achieve the preceding is using get_if.
-    auto ptr = std::get_if<T*>(&shdrs);
-    return ptr ? *ptr : nullptr;
-}
+//     // an even better way to achieve the preceding is using get_if.
+//     auto ptr = std::get_if<T*>(&shdrs);
+//     return ptr ? *ptr : nullptr;
+// }
