@@ -21,102 +21,93 @@ public:
 
     bool wrap(AbstractByteBuffer *v_buf);
 
-    template <typename EhdrT, typename PhdrT, typename ShdrT>
-    bool wrapElfHeaders(AbstractByteBuffer* buf, bool allowExceptionsFromBuffer);
-
+    // Header info
     virtual offset_t getEntryPoint() const;
     virtual offset_t getImageBase() const;
     virtual offset_t getRawSize() const { return buf ? static_cast<offset_t>(buf->getContentSize()) : 0; }
     virtual bufsize_t getVirtualSize() const;
-
-    virtual bufsize_t getAlignment() const;
     virtual bufsize_t getImageSize() const;
-
+    virtual bufsize_t getAlignment() const;
 
     Executable::exe_bits getHdrBitMode() const;
     Executable::exe_arch getHdrArch() const;
 
-    offset_t elfSectionHdrsOffset() const;
-    offset_t elfSectionHdrsOffset(int idx) const;
-    
-    offset_t elfProgramHdrsOffset() const;
-    offset_t elfProgramHdrsOffset(int idx) const;
-    
-    bufsize_t elfSectionHdrsSize()  const;
-    bufsize_t elfSectionHdrsSize(int idx)  const;
-    
-    bufsize_t elfProgramHdrsSize()  const;
-    bufsize_t elfProgramHdrsSize(int idx)  const;
-    
-    size_t elfProgramHdrsCount()    const;
-    size_t elfProgramHdrsCount(int idx)    const;
-    
-    size_t elfSectionHdrsCount()    const;
-    size_t elfSectionHdrsCount(int idx)    const;
+    // Header counts
+    size_t getProgramHdrsCount()    const;
+    size_t getSectionHdrsCount()    const;
+
+    // Header offsets and sizes
+    offset_t getProgramHdrsOffset() const;
+    bufsize_t getProgramHdrsSize()  const;
+    offset_t getSectionHdrsOffset() const;
+    bufsize_t getSectionHdrsSize()  const;
+
+    // Headers access by index
+    offset_t getProgramHdrByIndex(int idx) const;
+    offset_t getSectionHdrByIndex(int idx) const;
+    bufsize_t getSectionHdrSizeByIndex(int idx)  const;
+    bufsize_t getProgramHdrSizeByIndex(int idx)  const;
+
+    // High-level querying
+    QVector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> getProgramHeaders() const;
+    QVector<std::variant<Elf32_Shdr*, Elf64_Shdr*>> getSectionHeaders() const;
+
+    int findSectionByName(const QString& name) const;
+    int findSegmentByType(uint32_t type) const;
+    int findSectionByType(uint32_t type) const;
+    QString getSectionNameByIndex(int idx) const;
+
+    // Flags
+    bool isLoadableSegment(int idx) const;
+    bool isExecutableSegment(int idx) const;
+    bool sectionHasFlag(int idx, uint32_t flag) const;
+    bool segmentHasFlag(int idx, uint32_t flag) const;
 
 private:
-    // caching variables to avoid unecessary loops.
-    mutable offset_t cachedImageSize  = 0;
-    mutable bool cachedImageSizeValid = false;
+    // Internal helpers
+    template <typename EhdrT, typename PhdrT, typename ShdrT>
+    bool wrapElfHeaders(AbstractByteBuffer* buf, bool allowExceptionsFromBuffer);
 
-    mutable offset_t cachedImageBase  = UINT64_MAX;
-    mutable bool cachedImageBaseValid = false;
+    template <typename T> T* getElfHeader() const;
+    template <typename T> T* getProgramHeaders() const;
+    template <typename T> T* getSectionHeaders() const;
 
-    // Getters for ELF Header
-    template <typename T>
-    T* getElfHeader() const;
+    QVector<QString> cacheSectionNames() const;
 
-    // Getters for Program Headers
-    template <typename T>
-    T* getProgramHeaders() const;
+    // Variant helpers
+    std::variant<Elf32_Ehdr*, Elf64_Ehdr*> getEhdrVariant() const;
+    template<typename EhdrT> std::variant<Elf32_Ehdr*, Elf64_Ehdr*> getEhdrVariantT() const;
+    
+    std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariant() const;
+    template<typename PhdrT> std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariantT() const;
 
-    // Getters for Section Headers
-    template <typename T>
-    T* getSectionHeaders() const;
+    std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariant() const;
+    template<typename ShdrT> std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariantT() const;
 
 protected:
     void reset();
     // this field has become almost useless, since we templated everything.
     bool is64() const { return std::holds_alternative<Elf64_Ehdr*>(ehdr); }
 
+private:
     AbstractByteBuffer *buf;
 
-    // ELF Header
-    std::variant<Elf32_Ehdr*, Elf64_Ehdr*> getEhdrVariant() const;
-
-    template<typename EhdrT>
-    std::variant<Elf32_Ehdr*, Elf64_Ehdr*> getEhdrVariantT() const;
-
-    // Program Headers
-    std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariant() const;
-
-    template<typename PhdrT>
-    std::variant<Elf32_Phdr*, Elf64_Phdr*> getPhdrsVariantT() const;
-
-    // Section Headers
-    std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariant() const;
-    
-    template<typename ShdrT>
-    std::variant<Elf32_Shdr*, Elf64_Shdr*> getShdrsVariantT() const;
-
-    // for the following containers, we need to make a choice
-    // between using QVector and QList.
-
-    // Pointers to the ELF structures
-    // Using std::variant to hold either Elf32 or Elf64 structures
-    // This allows us to handle both 32-bit and 64-bit ELF files in a type-safe manner
     std::variant<Elf32_Ehdr*, Elf64_Ehdr*> ehdr;
-    // need to change these to std::vector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> 
-    // if we want to support multiple program headers
     std::variant<Elf32_Phdr*, Elf64_Phdr*> phdrs;
-    // temporary so our program still builds.
-    std::vector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> _phdrs;
-    QVector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> __phdrs;
-
-
     std::variant<Elf32_Shdr*, Elf64_Shdr*> shdrs;
-    // temporary so our program still builds.
-    std::vector<std::variant<Elf32_Shdr*, Elf64_Shdr*>> _shdrs;
+
+    QVector<std::variant<Elf32_Phdr*, Elf64_Phdr*>> __phdrs;
     QVector<std::variant<Elf32_Shdr*, Elf64_Shdr*>> __shdrs;
+
+    // Caching
+    mutable offset_t cachedImageSize  = 0;
+    mutable bool cachedImageSizeValid = false;
+
+    mutable offset_t cachedImageBase  = UINT64_MAX;
+    mutable bool cachedImageBaseValid = false;
+    
+    mutable QVector<QString> cachedSectionNames;
+    mutable bool cachedSectionNamesValid = false;
+
 friend class ELFFile;
 };

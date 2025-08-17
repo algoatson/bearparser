@@ -68,12 +68,12 @@ public:
 
     //---
     // ELFFile only:
-    offset_t elfProgHdrOffset() const { return core.elfProgramHdrsOffset(); }
-    bufsize_t elfProgHdrCount() const { return core.elfProgramHdrsCount(); }
-    bufsize_t elfProgHdrSize()  const { return core.elfProgramHdrsSize(); }
+    offset_t elfProgHdrOffset() const { return core.getProgramHdrsOffset(); }
+    bufsize_t elfProgHdrCount() const { return core.getProgramHdrsCount(); }
+    bufsize_t elfProgHdrSize()  const { return core.getProgramHdrsSize(); }
     
-    offset_t elfSectHdrOffset() const { return core.elfSectionHdrsOffset(); }
-    bufsize_t elfSectHdrSize()  const { return core.elfSectionHdrsSize(); }
+    offset_t elfSectHdrOffset() const { return core.getSectionHdrsOffset(); }
+    bufsize_t elfSectHdrSize()  const { return core.getSectionHdrsSize(); }
 
 protected:
     void _init(AbstractByteBuffer *v_buf);

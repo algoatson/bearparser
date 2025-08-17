@@ -50,7 +50,6 @@ int main(int argc, char *argv[])
 
     int status = 0;
     QString fName = QString(argv[1]);
-    qDebug() << "PATH TO EXECUTABLE : " << fName;
 
     try {
         FileView* fileView = tryLoading(fName);
